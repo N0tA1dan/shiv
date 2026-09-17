@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include "logger.hpp"
 
-pid_t createProc(const std::string& procName){
+[[nodiscard]] pid_t createProc(const std::string& procName){
 
   pid_t childProc = fork();
 
@@ -16,6 +16,9 @@ pid_t createProc(const std::string& procName){
 
   // within child process
   if(childProc == 0){
+
+    // stop execution and allows for tracing
+    ptrace(PTRACE_TRACEME, NULL, NULL, NULL);
 
     // load target process 
     char *args[] = {const_cast<char*>(procName.c_str()), NULL};
@@ -38,8 +41,20 @@ int main(int argc, char *argv[]) {
   Logger logger;
 
   logger.log(logType::INFO, "Launch sequence starting");
-  createProc(argv[1]);
+  // create child process
+  pid_t childProc = createProc(argv[1]);
 
+
+  // todo
+  ptrace(PTRACE_CONT, childProc, 0, 0);
+  int status = 0;
+  waitpid(childProc, &status, 0);
+
+  if (WIFEXITED(status)) {
+    logger.log(logType::INFO, "child exited, code " + std::to_string(WEXITSTATUS(status)));
+  }
+
+  
 
 }
 
