@@ -57,3 +57,7 @@ What i need to do now is to peek the word at oldRegs.RIP and save it, then use P
 also i found a source that provides the registers we need to move into accurately for a mmap syscall: https://syscalls.mebeim.net/?table=x86/64/x64/latest
 
 chromium also explains it a bit more: www.chromium.org/chromium-os/developer-library/reference/linux-constants/syscalls/
+
+# 23 September 2026
+
+I completed the basic logic to call mmap within a remote process, next is to clean it up because its very messy. I should also learn how to do a trampoline hook now

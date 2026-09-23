@@ -34,17 +34,24 @@
 
 }
 
-void callMap(pid_t childProc, size_t size){
-
-  // todo: save rip, write new instruction, then do syscall
+[[nodiscard]] unsigned long long int callMap(pid_t childProc, size_t size){
 
   // save current instructions to be restored later
   user_regs_struct oldRegs;
   ptrace(PTRACE_GETREGS, childProc, NULL, &oldRegs);
 
+  // get current instruction
+  long oldCode = ptrace(PTRACE_PEEKTEXT, childProc, oldRegs.rip, NULL);
+
+
+  long patched = (oldCode & ~0xFFFFL) | 0x050F;
+  ptrace(PTRACE_POKETEXT, childProc, (void*)oldRegs.rip, (void*)patched);
+
+
   /*
    * We copy oldRegs into newRegs because we are only modifying a few registers.
    * We still need the old ones to keep the program from functioning properly
+   * We set the addr to null so the kernel will decide where to make the allocation
    */
   user_regs_struct newRegs = oldRegs;
   newRegs.rax = 9;      // SYS_mmap
@@ -54,10 +61,32 @@ void callMap(pid_t childProc, size_t size){
   newRegs.r10 = 34;     // MAP_PRIVATE | MAP_ANONYMOUS 
   newRegs.r8  = -1;     // fd
   newRegs.r9  = 0;      // offset
-                        //
-  ptrace(PTRACE_SETREGS, childProc, newRegs, NULL);
+
+  // set new registers
+  ptrace(PTRACE_SETREGS, childProc, NULL, &newRegs);
+
+  // execute the single syscall instruction
+  ptrace(PTRACE_SINGLESTEP, childProc, NULL, NULL);
+  int status;
+  waitpid(childProc, &status, 0);
+
+  // store the result, a syscall will return the result in RAX register. Then we put that into allocAddr
+  user_regs_struct resultRegs;
+  ptrace(PTRACE_GETREGS, childProc, NULL, &resultRegs);
+  unsigned long long int allocAddr = resultRegs.rax;
+
+  // restore old context
+  ptrace(PTRACE_POKETEXT, childProc, (void*)oldRegs.rip, (void*)oldCode);
+  ptrace(PTRACE_SETREGS, childProc, NULL, &oldRegs);
 
 
+  if ((long)allocAddr < 0 && (long)allocAddr > -4096){
+    std::cerr << "mmap failed: errno " << -(long)allocAddr << std::endl;
+
+  }
+
+
+  return allocAddr;
 }
 
 
@@ -84,9 +113,14 @@ int main(int argc, char *argv[]) {
   //}
   //
 
-  // call mmap from here
-  callMap(childProc, 1000);
+  std::cout << childProc << std::endl;
 
+  // call mmap from here
+  auto allocAddr = callMap(childProc, 4098);
+
+  std::cout << "mmap returned addr: " << std::hex << allocAddr << std::endl;
+
+  pause();
 
 }
 
