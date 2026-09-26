@@ -24,5 +24,19 @@ endif()
 add_library(shiv_logger STATIC src/logger.cpp)
 target_include_directories(shiv_logger PUBLIC include)
 
+# Pick the platform-specific tracee implementation at configure time.
+# Only the source for the current OS is compiled; the others are ignored.
+if(WIN32)
+  set(SHIV_TRACEE_SRC src/tracee_windows.cpp)
+elseif(UNIX AND NOT APPLE)
+  set(SHIV_TRACEE_SRC src/tracee_linux.cpp)
+else()
+  message(FATAL_ERROR "shiv: no tracee implementation for this platform yet")
+endif()
+
+add_library(shiv_tracee STATIC ${SHIV_TRACEE_SRC})
+target_include_directories(shiv_tracee PUBLIC include)
+target_link_libraries(shiv_tracee PRIVATE shiv_logger)
+
 add_executable(shiv src/main.cpp)
-target_link_libraries(shiv PRIVATE shiv_logger)
+target_link_libraries(shiv PRIVATE shiv_tracee shiv_logger)

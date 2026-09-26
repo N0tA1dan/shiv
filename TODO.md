@@ -61,3 +61,10 @@ chromium also explains it a bit more: www.chromium.org/chromium-os/developer-lib
 # 23 September 2026
 
 I completed the basic logic to call mmap within a remote process, next is to clean it up because its very messy. I should also learn how to do a trampoline hook now
+
+
+# 25 September 2026
+
+I implemented pImpl idiom. So now i can develop both for linux and windows and maybe another platform.
+
+I need to clean up all the code next, pass arguments to target binary, and figure out the next stage of process injection 
