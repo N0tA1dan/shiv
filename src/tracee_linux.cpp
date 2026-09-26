@@ -8,6 +8,7 @@
 #include <sys/user.h>
 #include <unistd.h>
 
+// impl definition. Will probably be different across different platforms. refer to pimpl idiom
 struct Tracee::impl{
   int64_t pid;
   uint64_t allocAddr;
@@ -115,6 +116,7 @@ void Tracee::createAlloc(size_t size){
 
   // execute the single syscall instruction
   ptrace(PTRACE_SINGLESTEP, childProc, NULL, NULL);
+
   int status;
   waitpid(childProc, &status, 0);
 
