@@ -82,3 +82,7 @@ I may need to do some sort of .so (shared library) injection if i want to write 
       4. VERIFY: ndisasm -b 64 payload.bin  (must be clean, self-contained instrs)
       5. Feed bytes to injector (xxd -i, or read file at runtime)
       Gotchas: no external refs, entry @ offset 0, only .text survives
+
+IMPORTANT NOTE: Allocating R + W + E with mmap could fail because some kernels may protect against it. 
+
+The proper way would probably to just allocate the memory first (R+W), then after writing the payload to memory, call mprotect to change the permissions of that memory to R + E

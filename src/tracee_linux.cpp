@@ -71,7 +71,6 @@ void Tracee::initProc(const std::string& procName){
 
   m_impl->pid = childProc;
 
-
 }
 
 void Tracee::createAlloc(size_t size){
