@@ -68,3 +68,17 @@ I completed the basic logic to call mmap within a remote process, next is to cle
 I implemented pImpl idiom. So now i can develop both for linux and windows and maybe another platform.
 
 I need to clean up all the code next, pass arguments to target binary, and figure out the next stage of process injection 
+
+The next next step is to write a payload into the mmap memory: My idea to do this is to get the payload in bytes, and write the bytes word by word using PTRACE_POKETEXT, and the target address we are writing to is starting at the base of mmap (aka what mmap returned).
+
+
+I may need to do some sort of .so (shared library) injection if i want to write payloads in c, Ill postpone this until i get actual shellcode injection working first
+
+[ x ] Payload build pipeline (shellcode): 1. Write payload.c/.s (freestanding, no libc, no globals/strings, syscalls only)
+2. Compile: gcc -Os -ffreestanding -fno-stack-protector \
+-fno-asynchronous-unwind-tables -fcf-protection=none \
+-c payload.c -o payload.o
+      3. Extract raw bytes: objcopy -O binary -j .text payload.o payload.bin
+      4. VERIFY: ndisasm -b 64 payload.bin  (must be clean, self-contained instrs)
+      5. Feed bytes to injector (xxd -i, or read file at runtime)
+      Gotchas: no external refs, entry @ offset 0, only .text survives
