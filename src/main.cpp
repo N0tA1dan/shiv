@@ -20,7 +20,7 @@ int main(int argc, char *argv[]) {
   tracee.initProc(argv[1]);
   std::cout << "Target Process ID: " << tracee.getPid() << std::endl;
 
-  // mmap 100 bytes. Will return 4KB since mmap maps in pages
+  // mmap underneath. returns multiple of pages, not exact bytes like malloc()
   tracee.createAlloc(100);
   std::cout << "MMAP alloc address: " << std::hex << tracee.getAllocAddr() << std::endl;
 

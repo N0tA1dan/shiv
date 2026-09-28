@@ -45,13 +45,13 @@ struct Tracee::impl{
      * We set the addr to null so the kernel will decide where to make the allocation
      */
     user_regs_struct newRegs = oldRegs;
-    newRegs.rax = number;      // SYS_mmap
-    newRegs.rdi = rdi;      // addr = NULL
-    newRegs.rsi = rsi;    // length
-    newRegs.rdx = rdx;      // PROT_READ | PROT_WRITE
-    newRegs.r10 = r10;     // MAP_PRIVATE | MAP_ANONYMOUS 
-    newRegs.r8  = r8;     // fd
-    newRegs.r9  = r9;      // offset
+    newRegs.rax = number;      // SYSCALL number 
+    newRegs.rdi = rdi;
+    newRegs.rsi = rsi;
+    newRegs.rdx = rdx;
+    newRegs.r10 = r10;
+    newRegs.r8  = r8;
+    newRegs.r9  = r9;
 
     // set new registers
     ptrace(PTRACE_SETREGS, childProc, NULL, &newRegs);
@@ -152,6 +152,35 @@ void Tracee::createAlloc(size_t size){
 }
 
 void Tracee::writePayload(const std::vector<std::byte>& payload){
+
+  // get page size
+  long pageSize = sysconf(_SC_PAGE_SIZE);
+
+  long totalSize = 0;
+
+  int remainder = m_impl->allocSize % pageSize;
+
+  if (remainder == 0)
+    totalSize = m_impl->allocSize;
+
+  // calculate total pages allocated
+  totalSize = m_impl->allocSize + pageSize - remainder;
+
+
+  // change allocated pages to R + E
+  user_regs_struct result = m_impl->makeSyscall(
+      0xa, // MPROTECT Syscall number
+      m_impl->allocAddr,              // page base address
+      static_cast<size_t>(totalSize), // total page size
+      PROT_READ | PROT_EXEC,          // prot
+      0,     // flags
+      0,
+      0);
+
+  if(result.rax == -1){
+    std::cerr << "error: mprotect failed to set read + exec for page" << std::endl;
+    exit(EXIT_FAILURE);
+  }
 
   /*
    * Write bytes word by word via ptrace

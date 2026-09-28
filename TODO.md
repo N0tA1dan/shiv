@@ -91,6 +91,10 @@ The proper way would probably to just allocate the memory first (R+W), then afte
 
 # 28 September 2026
 
-Add a makeSyscall function to tracee_linux within the impl struct.
+[ x ] Add a makeSyscall function to tracee_linux within the impl struct.
 
-Clean tf up for makeSyscall. Also clean everything up. low key am itching to not use claude or chatgpt
+[ ] Clean tf up for makeSyscall. Also clean everything up. low key am itching to not use claude or chatgpt
+
+[ x ]mmprotect allocated memory when writing payload 
+
+Probably add an index of the allocated Payload, just in case you call writePayload multiple times
