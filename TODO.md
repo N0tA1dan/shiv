@@ -86,3 +86,11 @@ I may need to do some sort of .so (shared library) injection if i want to write 
 IMPORTANT NOTE: Allocating R + W + E with mmap could fail because some kernels may protect against it. 
 
 The proper way would probably to just allocate the memory first (R+W), then after writing the payload to memory, call mprotect to change the permissions of that memory to R + E
+
+
+
+# 28 September 2026
+
+Add a makeSyscall function to tracee_linux within the impl struct.
+
+Clean tf up for makeSyscall. Also clean everything up. low key am itching to not use claude or chatgpt

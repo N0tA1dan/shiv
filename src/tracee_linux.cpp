@@ -2,6 +2,9 @@
 #include <cstdint>
 #include <cstring>
 #include <cerrno>
+#include <vector>
+#include <sys/syscall.h>
+#include <sys/mman.h>
 #include <sys/ptrace.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -10,9 +13,67 @@
 
 // impl definition. Will probably be different across different platforms. refer to pimpl idiom
 struct Tracee::impl{
+
   int64_t pid;
   uint64_t allocAddr;
   size_t allocSize;
+
+  [[nodiscard]] user_regs_struct makeSyscall(long long int number, long long int rdi, long long int rsi, long long int rdx, long long int r10, long long int r8, long long int r9){
+
+    pid_t childProc = 0;
+
+    if(pid > 0 ) {
+      childProc = pid;
+    } else{
+      std::cerr << "error: child process id does not exist" << std::endl;
+      exit(EXIT_FAILURE);
+    }
+
+    // save current instructions to be restored later
+    user_regs_struct oldRegs;
+    ptrace(PTRACE_GETREGS, childProc, NULL, &oldRegs);
+
+    // get current instruction
+    long oldCode = ptrace(PTRACE_PEEKTEXT, childProc, oldRegs.rip, NULL);
+
+    long patched = (oldCode & ~0xFFFFL) | 0x050F;
+    ptrace(PTRACE_POKETEXT, childProc, (void*)oldRegs.rip, (void*)patched);
+
+    /*
+     * We copy oldRegs into newRegs because we are only modifying a few registers.
+     * We still need the old ones to keep the program from functioning properly
+     * We set the addr to null so the kernel will decide where to make the allocation
+     */
+    user_regs_struct newRegs = oldRegs;
+    newRegs.rax = number;      // SYS_mmap
+    newRegs.rdi = rdi;      // addr = NULL
+    newRegs.rsi = rsi;    // length
+    newRegs.rdx = rdx;      // PROT_READ | PROT_WRITE
+    newRegs.r10 = r10;     // MAP_PRIVATE | MAP_ANONYMOUS 
+    newRegs.r8  = r8;     // fd
+    newRegs.r9  = r9;      // offset
+
+    // set new registers
+    ptrace(PTRACE_SETREGS, childProc, NULL, &newRegs);
+
+    // execute the single syscall instruction
+    ptrace(PTRACE_SINGLESTEP, childProc, NULL, NULL);
+
+    int status;
+    waitpid(childProc, &status, 0);
+
+    // store the result, a syscall will return the result in RAX register. Then we put that into allocAddr
+    user_regs_struct resultRegs;
+    ptrace(PTRACE_GETREGS, childProc, NULL, &resultRegs);
+
+    // restore old context
+    ptrace(PTRACE_POKETEXT, childProc, (void*)oldRegs.rip, (void*)oldCode);
+    ptrace(PTRACE_SETREGS, childProc, NULL, &oldRegs);
+
+    return resultRegs;
+
+  }
+
 };
 
 Tracee::Tracee() {
@@ -75,68 +136,48 @@ void Tracee::initProc(const std::string& procName){
 }
 
 void Tracee::createAlloc(size_t size){
-  pid_t childProc = 0;
 
-  if(m_impl->pid > 0 ) {
-    childProc = m_impl->pid;
-  } else{
-    std::cerr << "error: child process id does not exist" << std::endl;
-    exit(EXIT_FAILURE);
-  }
+  user_regs_struct result = m_impl->makeSyscall(
+      SYS_mmap,                        // number
+      0,                               // addr  = NULL (kernel chooses)
+      static_cast<long long>(size),    // length
+      PROT_READ | PROT_WRITE,          // prot
+      MAP_PRIVATE | MAP_ANONYMOUS,     // flags
+      -1,                              // fd
+      0);
 
+  m_impl->allocAddr = result.rax;
+  m_impl->allocSize = size;
 
-  // save current instructions to be restored later
-  user_regs_struct oldRegs;
-  ptrace(PTRACE_GETREGS, childProc, NULL, &oldRegs);
+}
 
-  // get current instruction
-  long oldCode = ptrace(PTRACE_PEEKTEXT, childProc, oldRegs.rip, NULL);
-
-
-  long patched = (oldCode & ~0xFFFFL) | 0x050F;
-  ptrace(PTRACE_POKETEXT, childProc, (void*)oldRegs.rip, (void*)patched);
-
+void Tracee::writePayload(const std::vector<std::byte>& payload){
 
   /*
-   * We copy oldRegs into newRegs because we are only modifying a few registers.
-   * We still need the old ones to keep the program from functioning properly
-   * We set the addr to null so the kernel will decide where to make the allocation
+   * Write bytes word by word via ptrace
    */
-  user_regs_struct newRegs = oldRegs;
-  newRegs.rax = 9;      // SYS_mmap
-  newRegs.rdi = 0;      // addr = NULL
-  newRegs.rsi = size;    // length
-  newRegs.rdx = 3;      // PROT_READ | PROT_WRITE
-  newRegs.r10 = 34;     // MAP_PRIVATE | MAP_ANONYMOUS 
-  newRegs.r8  = -1;     // fd
-  newRegs.r9  = 0;      // offset
+  constexpr size_t kWord = sizeof(long);
 
-  // set new registers
-  ptrace(PTRACE_SETREGS, childProc, NULL, &newRegs);
+  // starting address
+  uint64_t base = m_impl->allocAddr;
+  int64_t pid = m_impl->pid;
 
-  // execute the single syscall instruction
-  ptrace(PTRACE_SINGLESTEP, childProc, NULL, NULL);
+  for (size_t offset = 0; offset < payload.size(); offset += kWord) {
+    size_t chunk = std::min(kWord, payload.size() - offset);
+    void* dst = reinterpret_cast<void*>(base + offset);
 
-  int status;
-  waitpid(childProc, &status, 0);
+    long word = 0;
+    if (chunk < kWord) {                       // partial tail: preserve neighbors
+      errno = 0;
+      word = ptrace(PTRACE_PEEKTEXT, pid, dst, nullptr);
+      if (word == -1 && errno) { /* handle error */ }
+    }
+    std::memcpy(&word, &payload[offset], chunk);
 
-  // store the result, a syscall will return the result in RAX register. Then we put that into allocAddr
-  user_regs_struct resultRegs;
-  ptrace(PTRACE_GETREGS, childProc, NULL, &resultRegs);
-  unsigned long long int allocAddr = resultRegs.rax;
-
-  // restore old context
-  ptrace(PTRACE_POKETEXT, childProc, (void*)oldRegs.rip, (void*)oldCode);
-  ptrace(PTRACE_SETREGS, childProc, NULL, &oldRegs);
-
-
-  if ((long)allocAddr < 0 && (long)allocAddr > -4096){
-    std::cerr << "mmap failed: errno " << -(long)allocAddr << std::endl;
-
+    if (ptrace(PTRACE_POKETEXT, pid, dst, reinterpret_cast<void*>(word)) == -1) {
+      /* handle error */
+    }
   }
-
-  m_impl->allocAddr = allocAddr;
-  m_impl->allocSize = size;
 
 }
 

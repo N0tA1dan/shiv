@@ -1,6 +1,7 @@
 #pragma once
 
 #include <iostream>
+#include <vector>
 #include <string>
 #include <memory>
 #include <cstdint>
@@ -18,6 +19,10 @@ public:
   void initProc(const std::string& procName);
 
   void createAlloc(size_t size);
+
+  void readPayloadFromFile(std::string fileName);
+
+  void writePayload(const std::vector<std::byte>& payload);
 
   [[nodiscard]] int64_t getPid();
 
