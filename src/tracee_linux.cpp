@@ -82,6 +82,8 @@ Tracee::Tracee() {
 
   m_impl->allocAddr = 0;
 
+  m_impl->allocSize = 0;
+
   m_impl->pid = 0;
 }
 
@@ -138,7 +140,7 @@ void Tracee::initProc(const std::string& procName){
 void Tracee::createAlloc(size_t size){
 
   user_regs_struct result = m_impl->makeSyscall(
-      SYS_mmap,                        // number
+      SYS_mmap,
       0,                               // addr  = NULL (kernel chooses)
       static_cast<long long>(size),    // length
       PROT_READ | PROT_WRITE,          // prot
@@ -191,11 +193,11 @@ void Tracee::writePayload(const std::vector<std::byte>& payload){
 
   // change allocated pages to R + E
   user_regs_struct result = m_impl->makeSyscall(
-      SYS_mprotect, // MPROTECT Syscall number
-      m_impl->allocAddr,              // page base address
-      static_cast<size_t>(totalSize), // total page size
-      PROT_READ | PROT_EXEC,          // prot
-      0,     // flags
+      SYS_mprotect,
+      m_impl->allocAddr,
+      static_cast<size_t>(totalSize),
+      PROT_READ | PROT_EXEC,
+      0,
       0,
       0);
 
