@@ -102,3 +102,5 @@ Probably add an index of the allocated Payload, just in case you call writePaylo
 # 29 September 2026
 
 Make writePayload arguments uint64_t instead of long long int, cast if needed for negative numbers
+
+I should probably save the protection state of the pages allocated by mmap. I should also make a function that will help change the pages state instead of doing it within a function

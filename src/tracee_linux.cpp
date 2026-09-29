@@ -155,42 +155,23 @@ void Tracee::writePayload(const std::vector<std::byte>& payload){
 
   // get page size
   long pageSize = sysconf(_SC_PAGE_SIZE);
-
   long totalSize = 0;
-
   int remainder = m_impl->allocSize % pageSize;
 
-  if (remainder == 0)
+  // calculate total pages allocated by mmap
+  if (remainder == 0){
     totalSize = m_impl->allocSize;
-
-  // calculate total pages allocated
-  totalSize = m_impl->allocSize + pageSize - remainder;
-
-
-  // change allocated pages to R + E
-  user_regs_struct result = m_impl->makeSyscall(
-      0xa, // MPROTECT Syscall number
-      m_impl->allocAddr,              // page base address
-      static_cast<size_t>(totalSize), // total page size
-      PROT_READ | PROT_EXEC,          // prot
-      0,     // flags
-      0,
-      0);
-
-  if(result.rax == -1){
-    std::cerr << "error: mprotect failed to set read + exec for page" << std::endl;
-    exit(EXIT_FAILURE);
+  } 
+  else{
+    totalSize = m_impl->allocSize + pageSize - remainder;
   }
 
-  /*
-   * Write bytes word by word via ptrace
-   */
   constexpr size_t kWord = sizeof(long);
-
   // starting address
   uint64_t base = m_impl->allocAddr;
   int64_t pid = m_impl->pid;
 
+  // write payload word by word into our base address from mmap
   for (size_t offset = 0; offset < payload.size(); offset += kWord) {
     size_t chunk = std::min(kWord, payload.size() - offset);
     void* dst = reinterpret_cast<void*>(base + offset);
@@ -206,6 +187,21 @@ void Tracee::writePayload(const std::vector<std::byte>& payload){
     if (ptrace(PTRACE_POKETEXT, pid, dst, reinterpret_cast<void*>(word)) == -1) {
       /* handle error */
     }
+  }
+
+  // change allocated pages to R + E
+  user_regs_struct result = m_impl->makeSyscall(
+      SYS_mprotect, // MPROTECT Syscall number
+      m_impl->allocAddr,              // page base address
+      static_cast<size_t>(totalSize), // total page size
+      PROT_READ | PROT_EXEC,          // prot
+      0,     // flags
+      0,
+      0);
+
+  if(result.rax == -1){
+    std::cerr << "error: mprotect failed to set read + exec for page" << std::endl;
+    exit(EXIT_FAILURE);
   }
 
 }
