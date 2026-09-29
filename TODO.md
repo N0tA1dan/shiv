@@ -98,3 +98,7 @@ The proper way would probably to just allocate the memory first (R+W), then afte
 [ x ]mmprotect allocated memory when writing payload 
 
 Probably add an index of the allocated Payload, just in case you call writePayload multiple times
+
+# 29 September 2026
+
+Make writePayload arguments uint64_t instead of long long int, cast if needed for negative numbers

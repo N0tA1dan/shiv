@@ -11,14 +11,14 @@
 #include <sys/user.h>
 #include <unistd.h>
 
-// impl definition. Will probably be different across different platforms. refer to pimpl idiom
+// impl definition. Will probably be different across different platforms.
 struct Tracee::impl{
 
   int64_t pid;
   uint64_t allocAddr;
   size_t allocSize;
 
-  [[nodiscard]] user_regs_struct makeSyscall(long long int number, long long int rdi, long long int rsi, long long int rdx, long long int r10, long long int r8, long long int r9){
+  [[nodiscard]] user_regs_struct makeSyscall(uint64_t number, uint64_t rdi, uint64_t rsi, uint64_t rdx, uint64_t r10, uint64_t r8, uint64_t r9){
 
     pid_t childProc = 0;
 
