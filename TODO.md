@@ -91,16 +91,24 @@ The proper way would probably to just allocate the memory first (R+W), then afte
 
 # 28 September 2026
 
-[ x ] Add a makeSyscall function to tracee_linux within the impl struct.
+- [ x ] Add a makeSyscall function to tracee_linux within the impl struct.
 
 [ ] Clean tf up for makeSyscall. Also clean everything up. low key am itching to not use claude or chatgpt
 
-[ x ]mmprotect allocated memory when writing payload 
+- [ x ]mmprotect allocated memory when writing payload 
 
 Probably add an index of the allocated Payload, just in case you call writePayload multiple times
 
 # 29 September 2026
 
-Make writePayload arguments uint64_t instead of long long int, cast if needed for negative numbers
+- [ x ] Make writePayload arguments uint64_t instead of long long int, cast if needed for negative numbers
 
 I should probably save the protection state of the pages allocated by mmap. I should also make a function that will help change the pages state instead of doing it within a function
+
+# 1 October 2026
+
+https://linuxvox.com/blog/aslr-linux/
+
+I need to get the address of functions in order to actually write instructions within them for the trampoline to work. ASLR is something that kind of defeats this currently. However ASLR only works if you cant read /proc/<pid>/maps. But we can since we own the process.
+
+Check out this source specifically section 4 which covers how to get addresses despite ASLR: https://mathscantor.github.io/posts/linux-processing-injection-guide/part-2-attaching-and-defeating-aslr/
