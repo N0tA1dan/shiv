@@ -37,20 +37,24 @@ int main(int argc, char *argv[]) {
   // writes payload in bytes
   tracee.writePayload(payload);
 
-  uint64_t base = tracee.getAllocAddr();
-  uint64_t pid = tracee.getPid();
+  std::cout << "program base addr: " << std::hex << tracee.getBaseAddr() << std::endl;
 
-  std::vector<std::byte> readback;
-  for (size_t off = 0; off < payload.size(); off += sizeof(long)) {
-    long word = ptrace(PTRACE_PEEKTEXT, pid,
-        reinterpret_cast<void*>(base + off), nullptr);
-    auto* p = reinterpret_cast<std::byte*>(&word);
-    for (size_t i = 0; i < sizeof(long) && readback.size() < payload.size(); ++i)
-      readback.push_back(p[i]);
-  }
+  //int64_t instruction = 0;
 
-  std::cout << (readback == payload ? "readback MATCHES payload\n"
-      : "MISMATCH\n");
+  //int64_t baseAddr = 0;
+  //int64_t functionAddr = 0;
+
+  //std::cout << "enter base addr: ";
+  //std::cin >> std::hex >> baseAddr;
+
+  //std::cout << "enter function addr: ";
+  //std::cin >> std::hex >> functionAddr;
+
+  //
+  //instruction = ptrace(PTRACE_PEEKTEXT, pid, baseAddr+functionAddr, NULL);
+
+  //std::cout << std::hex << instruction << std::endl;
+  
 
   pause();
 }

@@ -28,5 +28,7 @@ public:
 
   [[nodiscard]] uint64_t getAllocAddr();
 
+  [[nodiscard]] uint64_t getBaseAddr();
+
 
 };

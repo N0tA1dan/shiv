@@ -3,6 +3,7 @@
 #include <cstring>
 #include <cerrno>
 #include <vector>
+#include <fstream>
 #include <sys/syscall.h>
 #include <sys/mman.h>
 #include <sys/ptrace.h>
@@ -15,8 +16,13 @@
 struct Tracee::impl{
 
   int64_t pid;
+
+  // for mmap
   uint64_t allocAddr;
   size_t allocSize;
+
+  // programs base address read from /proc/<pid>/maps
+  uint64_t baseAddr;
 
   [[nodiscard]] user_regs_struct makeSyscall(uint64_t number, uint64_t rdi, uint64_t rsi, uint64_t rdx, uint64_t r10, uint64_t r8, uint64_t r9){
 
@@ -71,6 +77,22 @@ struct Tracee::impl{
     ptrace(PTRACE_SETREGS, childProc, NULL, &oldRegs);
 
     return resultRegs;
+
+  }
+
+  void getBaseAddr(){
+    if(pid == 0) {
+      std::cerr << "error: process is not initialized or has terminated" << std::endl;
+      exit(EXIT_FAILURE);
+    }
+
+    std::ifstream f("/proc/" + std::to_string(pid) + "/maps");
+    std::string line;
+    if (!std::getline(f, line)) {
+      std::cerr << "error: getting line" << std::endl;
+      exit(EXIT_FAILURE);
+    }
+    baseAddr = std::stoull(line.substr(0, line.find('-')), nullptr, 16);
 
   }
 
@@ -201,7 +223,7 @@ void Tracee::writePayload(const std::vector<std::byte>& payload){
       0,
       0);
 
-  if(result.rax == -1){
+  if(static_cast<int>(result.rax) == -1){
     std::cerr << "error: mprotect failed to set read + exec for page" << std::endl;
     exit(EXIT_FAILURE);
   }
@@ -214,4 +236,9 @@ void Tracee::writePayload(const std::vector<std::byte>& payload){
 
 [[nodiscard]] uint64_t Tracee::getAllocAddr(){
   return m_impl->allocAddr;
+}
+
+[[nodiscard]] uint64_t Tracee::getBaseAddr(){
+  m_impl->getBaseAddr();
+  return m_impl->baseAddr;
 }
