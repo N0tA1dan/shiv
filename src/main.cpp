@@ -39,22 +39,6 @@ int main(int argc, char *argv[]) {
 
   std::cout << "program base addr: " << std::hex << tracee.getBaseAddr() << std::endl;
 
-  //int64_t instruction = 0;
-
-  //int64_t baseAddr = 0;
-  //int64_t functionAddr = 0;
-
-  //std::cout << "enter base addr: ";
-  //std::cin >> std::hex >> baseAddr;
-
-  //std::cout << "enter function addr: ";
-  //std::cin >> std::hex >> functionAddr;
-
-  //
-  //instruction = ptrace(PTRACE_PEEKTEXT, pid, baseAddr+functionAddr, NULL);
-
-  //std::cout << std::hex << instruction << std::endl;
-  
 
   pause();
 }

@@ -112,3 +112,7 @@ https://linuxvox.com/blog/aslr-linux/
 I need to get the address of functions in order to actually write instructions within them for the trampoline to work. ASLR is something that kind of defeats this currently. However ASLR only works if you cant read /proc/<pid>/maps. But we can since we own the process.
 
 Check out this source specifically section 4 which covers how to get addresses despite ASLR: https://mathscantor.github.io/posts/linux-processing-injection-guide/part-2-attaching-and-defeating-aslr/
+
+# 2 October 2026
+
+I need to replace all exit(EXIT_FAILURES) with throwing exceptions.

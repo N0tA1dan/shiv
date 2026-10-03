@@ -31,8 +31,7 @@ struct Tracee::impl{
     if(pid > 0 ) {
       childProc = pid;
     } else{
-      std::cerr << "error: child process id does not exist" << std::endl;
-      exit(EXIT_FAILURE);
+      throw std::runtime_error("error: process not initialized or terminated");
     }
 
     // save current instructions to be restored later
@@ -82,16 +81,15 @@ struct Tracee::impl{
 
   void getBaseAddr(){
     if(pid == 0) {
-      std::cerr << "error: process is not initialized or has terminated" << std::endl;
-      exit(EXIT_FAILURE);
+      throw std::runtime_error("error: process is not initialized or has been terminated");
     }
 
     std::ifstream f("/proc/" + std::to_string(pid) + "/maps");
     std::string line;
     if (!std::getline(f, line)) {
-      std::cerr << "error: getting line" << std::endl;
-      exit(EXIT_FAILURE);
+      throw std::runtime_error("error: getting line");
     }
+
     baseAddr = std::stoull(line.substr(0, line.find('-')), nullptr, 16);
 
   }
@@ -116,8 +114,7 @@ void Tracee::initProc(const std::string& procName){
   pid_t childProc = fork();
 
   if(childProc == -1){
-    std::cerr << "error: cannot create fork" << std::endl;
-    exit(EXIT_FAILURE);
+    throw std::runtime_error("error: cannot create fork");
   }
 
   // within child process
@@ -138,7 +135,7 @@ void Tracee::initProc(const std::string& procName){
 
   int status = 0;
   if(waitpid(childProc, &status, 0) == -1){
-    std::cerr << "error: waitpid failed on child process" << std::endl;
+    throw std::runtime_error("error: waitpid afailed on child process");
     m_impl->pid = -1;
     return;
   }
@@ -150,7 +147,7 @@ void Tracee::initProc(const std::string& procName){
    * valid tracee to record.
    */
   if(!WIFSTOPPED(status)){
-    std::cerr << "error: child did not stop for tracing (exec likely failed)" << std::endl;
+    throw std::runtime_error("error: child did not stop for tracing (exec likely failed)");
     m_impl->pid = -1;
     return;
   }
@@ -224,7 +221,7 @@ void Tracee::writePayload(const std::vector<std::byte>& payload){
       0);
 
   if(static_cast<int>(result.rax) == -1){
-    std::cerr << "error: mprotect failed to set read + exec for page" << std::endl;
+    throw std::runtime_error("error: mprotect failed to set read + exec for allocated memory");
     exit(EXIT_FAILURE);
   }
 
