@@ -41,8 +41,9 @@ struct Tracee::impl{
     // get current instruction
     long oldCode = ptrace(PTRACE_PEEKTEXT, childProc, oldRegs.rip, NULL);
 
-    long patched = (oldCode & ~0xFFFFL) | 0x050F;
-    ptrace(PTRACE_POKETEXT, childProc, (void*)oldRegs.rip, (void*)patched);
+    // syscall instruction
+    long syscallInstruction = (oldCode & ~0xFFFFL) | 0x050F;
+    ptrace(PTRACE_POKETEXT, childProc, (void*)oldRegs.rip, (void*)syscallInstruction);
 
     /*
      * We copy oldRegs into newRegs because we are only modifying a few registers.
@@ -105,6 +106,7 @@ Tracee::Tracee() {
   m_impl->allocSize = 0;
 
   m_impl->pid = 0;
+
 }
 
 Tracee::~Tracee() = default;
@@ -153,6 +155,7 @@ void Tracee::initProc(const std::string& procName){
   }
 
   m_impl->pid = childProc;
+  return;
 
 }
 

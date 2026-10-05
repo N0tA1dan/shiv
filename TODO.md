@@ -116,3 +116,5 @@ Check out this source specifically section 4 which covers how to get addresses d
 # 2 October 2026
 
 I need to replace all exit(EXIT_FAILURES) with throwing exceptions.
+
+I should actually put the getBaseAddr() just in initProc(). I should detect if its PIE or no because that determines if i need to calculate the ASLR base address.
