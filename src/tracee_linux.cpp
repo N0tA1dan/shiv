@@ -80,21 +80,6 @@ struct Tracee::impl{
 
   }
 
-  void getBaseAddr(){
-    if(pid == 0) {
-      throw std::runtime_error("error: process is not initialized or has been terminated");
-    }
-
-    std::ifstream f("/proc/" + std::to_string(pid) + "/maps");
-    std::string line;
-    if (!std::getline(f, line)) {
-      throw std::runtime_error("error: getting line");
-    }
-
-    baseAddr = std::stoull(line.substr(0, line.find('-')), nullptr, 16);
-
-  }
-
 };
 
 Tracee::Tracee() {
@@ -138,7 +123,6 @@ void Tracee::initProc(const std::string& procName){
   int status = 0;
   if(waitpid(childProc, &status, 0) == -1){
     throw std::runtime_error("error: waitpid afailed on child process");
-    m_impl->pid = -1;
     return;
   }
 
@@ -154,9 +138,20 @@ void Tracee::initProc(const std::string& procName){
     return;
   }
 
+  // set pid  
   m_impl->pid = childProc;
-  return;
 
+  // get the base address of the binary reading /proc/<pid>/maps
+  std::ifstream f("/proc/" + std::to_string(m_impl->pid) + "/maps");
+  std::string line;
+  if (!std::getline(f, line)) {
+    throw std::runtime_error("error: getting line");
+  }
+
+  // find the base addr and assign baseAddr variable
+  m_impl->baseAddr = std::stoull(line.substr(0, line.find('-')), nullptr, 16);
+
+  return;
 }
 
 void Tracee::createAlloc(size_t size){
@@ -239,6 +234,5 @@ void Tracee::writePayload(const std::vector<std::byte>& payload){
 }
 
 [[nodiscard]] uint64_t Tracee::getBaseAddr(){
-  m_impl->getBaseAddr();
   return m_impl->baseAddr;
 }
