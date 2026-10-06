@@ -225,6 +225,28 @@ void Tracee::writePayload(const std::vector<std::byte>& payload){
 
 }
 
+void Tracee::hookFunction(int64_t functionAddr){
+
+  // get real function address offset from ASLR address
+  functionAddr = m_impl->baseAddr + functionAddr;
+
+  // 12-byte absolute jump: movabs rax, allocAddr ; jmp rax
+  // 48 b8 <8-byte abs addr LE>  ff e0
+  uint8_t patch[12] = { 0x48, 0xb8, 0,0,0,0,0,0,0,0, 0xff, 0xe0 };
+  std::memcpy(&patch[2], &m_impl->allocAddr, 8);
+
+  // first word: bytes 0..7 of patch (full word, no merge needed)
+  uint64_t word1;
+  std::memcpy(&word1, &patch[0], 8);
+  ptrace(PTRACE_POKETEXT, m_impl->pid, functionAddr, word1);
+
+  // second word: bytes 8..11 of patch + preserve the 4 bytes after the patch
+  uint64_t word2 = ptrace(PTRACE_PEEKTEXT, m_impl->pid, functionAddr + 8, NULL);
+  std::memcpy(&word2, &patch[8], 4);
+  ptrace(PTRACE_POKETEXT, m_impl->pid, functionAddr + 8, word2);
+
+}
+
 [[nodiscard]] int64_t Tracee::getPid(){
   return m_impl->pid;
 }

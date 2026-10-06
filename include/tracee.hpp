@@ -24,6 +24,8 @@ public:
 
   void writePayload(const std::vector<std::byte>& payload);
 
+  void hookFunction(int64_t functionAddr);
+
   [[nodiscard]] int64_t getPid();
 
   [[nodiscard]] uint64_t getAllocAddr();

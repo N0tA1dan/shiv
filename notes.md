@@ -20,3 +20,8 @@ I found a really good guide/series that goes into depth of linux process injecti
 
 source: https://mathscantor.github.io/posts/linux-processing-injection-guide/part-1-overview/
 
+## 6 October 2026
+
+Ghidra and objdump and gdb seem to get the correct static address of instructions in a binary. so im **assuming** people could insert the address from ghidra or any other debugger/disassembler into shiv and itll hook normally
+
+For the hook payload, if you have the same parameters for your target function, you can access the values passed to the target function when its called. they have to be exact with the same types and everything

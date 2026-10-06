@@ -118,3 +118,11 @@ Check out this source specifically section 4 which covers how to get addresses d
 I need to replace all exit(EXIT_FAILURES) with throwing exceptions.
 
 I should actually put the getBaseAddr() just in initProc(). I should detect if its PIE or no because that determines if i need to calculate the ASLR base address.
+
+# 6 October 2026
+
+I moved getBaseAddr logic into initProc but now i need to test if a binary is PIE or not.
+
+Make a function that writes the hook at a given address/function
+
+I want to write helper functions/library functions that allow for the process state to be changed, like pause/start or continue/pause.
