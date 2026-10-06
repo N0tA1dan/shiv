@@ -126,3 +126,12 @@ I moved getBaseAddr logic into initProc but now i need to test if a binary is PI
 Make a function that writes the hook at a given address/function
 
 I want to write helper functions/library functions that allow for the process state to be changed, like pause/start or continue/pause.
+
+I need to determine if a program is PIE or non-PIE. To do this i can try and read the ELF header at offset 0x10 which can tell me if an executable is a shared object or an executable. If its a shared object it COULD be PIE, but most likely not.
+
+Check the header definition on wikipedia which explains it pretty well: https://en.wikipedia.org/wiki/Executable_and_Linkable_Format#File_layout
+
+i basically want to read e_type
+
+check out https://unix.stackexchange.com/questions/89211/how-to-test-whether-a-linux-binary-was-compiled-as-position-independent-code 
+
