@@ -220,7 +220,6 @@ void Tracee::writePayload(const std::vector<std::byte>& payload){
 
   if(static_cast<int>(result.rax) == -1){
     throw std::runtime_error("error: mprotect failed to set read + exec for allocated memory");
-    exit(EXIT_FAILURE);
   }
 
 }
