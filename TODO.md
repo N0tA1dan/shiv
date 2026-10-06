@@ -135,3 +135,5 @@ i basically want to read e_type
 
 check out https://unix.stackexchange.com/questions/89211/how-to-test-whether-a-linux-binary-was-compiled-as-position-independent-code 
 
+
+Maybe i should try shared library injection using dlopen. I basically would have to resolve dlopen in the target process and then force it to call dlopen. Then users can write their hooks as shared libraries which they can add and import other libraries, like libc. This would be probably the easiest thing for users to write their own payloads.
