@@ -3,6 +3,7 @@
 #include <cstring>
 #include <cerrno>
 #include <vector>
+#include <array>
 #include <fstream>
 #include <sys/syscall.h>
 #include <sys/mman.h>
@@ -16,6 +17,8 @@
 struct Tracee::impl{
 
   int64_t pid;
+
+  bool isPie;
 
   // for mmap
   uint64_t allocAddr;
@@ -123,7 +126,6 @@ void Tracee::initProc(const std::string& procName){
   int status = 0;
   if(waitpid(childProc, &status, 0) == -1){
     throw std::runtime_error("error: waitpid afailed on child process");
-    return;
   }
 
   /*
@@ -134,22 +136,61 @@ void Tracee::initProc(const std::string& procName){
    */
   if(!WIFSTOPPED(status)){
     throw std::runtime_error("error: child did not stop for tracing (exec likely failed)");
-    m_impl->pid = -1;
-    return;
   }
 
-  // set pid  
+  // set pid
   m_impl->pid = childProc;
 
-  // get the base address of the binary reading /proc/<pid>/maps
-  std::ifstream f("/proc/" + std::to_string(m_impl->pid) + "/maps");
-  std::string line;
-  if (!std::getline(f, line)) {
-    throw std::runtime_error("error: getting line");
+  //read ELF e_ident + e_type (handles both endiannesses)
+  std::ifstream elf(procName, std::ios::binary);
+  if (!elf) {
+    throw std::runtime_error("error: cannot open ELF file");
   }
 
-  // find the base addr and assign baseAddr variable
-  m_impl->baseAddr = std::stoull(line.substr(0, line.find('-')), nullptr, 16);
+  std::array<unsigned char, 18> hdr{};  // e_ident (16) + e_type (2)
+  elf.read(reinterpret_cast<char*>(hdr.data()), hdr.size());
+  if (!elf) {
+    throw std::runtime_error("error: short read on ELF header");
+  }
+
+  if (hdr[0] != 0x7F || hdr[1] != 'E' || hdr[2] != 'L' || hdr[3] != 'F') {
+    throw std::runtime_error("error: not an ELF file");
+  }
+
+  const bool littleEndian = (hdr[5] == 1);  // EI_DATA: 1=LSB, 2=MSB
+
+  uint16_t eType = 0;
+  if (littleEndian) {
+    eType = static_cast<uint16_t>(hdr[16] | (hdr[17] << 8));
+  } else {
+    eType = static_cast<uint16_t>(hdr[17] | (hdr[16] << 8));
+  }
+
+  constexpr uint16_t ET_EXEC = 2;
+  constexpr uint16_t ET_DYN  = 3;
+
+  // determines if executable is Pie or non-pie. Checking if we need to account for ASLR to calculate base address
+  // we read the ELF header. Refer to wikipedia to see the header standard
+  if (eType == ET_EXEC) {
+    m_impl->isPie = false;
+    m_impl->baseAddr = 0;
+  } 
+  else if (eType == ET_DYN) {
+    m_impl->isPie = true;
+
+    // first line of /proc/<pid>/maps starts with "<base>-<end> ..."
+    std::ifstream maps("/proc/" + std::to_string(m_impl->pid) + "/maps");
+    std::string line;
+
+    if (!std::getline(maps, line)) {
+      throw std::runtime_error("error: cannot read /proc/<pid>/maps");
+    }
+
+    m_impl->baseAddr = std::stoull(line.substr(0, line.find('-')), nullptr, 16);
+
+  } else {
+    throw std::runtime_error("error: unsupported ELF e_type");
+  }
 
   return;
 }
@@ -243,6 +284,8 @@ void Tracee::hookFunction(int64_t functionAddr){
   uint64_t word2 = ptrace(PTRACE_PEEKTEXT, m_impl->pid, functionAddr + 8, NULL);
   std::memcpy(&word2, &patch[8], 4);
   ptrace(PTRACE_POKETEXT, m_impl->pid, functionAddr + 8, word2);
+
+  ptrace(PTRACE_CONT, m_impl->pid, NULL, NULL);
 
 }
 
