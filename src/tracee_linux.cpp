@@ -240,12 +240,14 @@ void Tracee::writePayload(const std::vector<std::byte>& payload){
     if (chunk < kWord) {                       // partial tail: preserve neighbors
       errno = 0;
       word = ptrace(PTRACE_PEEKTEXT, pid, dst, nullptr);
-      if (word == -1 && errno) { /* handle error */ }
+      if (word == -1 && errno) {
+        throw std::runtime_error("error: reading word from process");
+      }
     }
     std::memcpy(&word, &payload[offset], chunk);
 
     if (ptrace(PTRACE_POKETEXT, pid, dst, reinterpret_cast<void*>(word)) == -1) {
-      /* handle error */
+      throw std::runtime_error("error: writing word into process failed");
     }
   }
 

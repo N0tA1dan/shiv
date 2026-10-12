@@ -137,3 +137,7 @@ check out https://unix.stackexchange.com/questions/89211/how-to-test-whether-a-l
 
 
 Maybe i should try shared library injection using dlopen. I basically would have to resolve dlopen in the target process and then force it to call dlopen. Then users can write their hooks as shared libraries which they can add and import other libraries, like libc. This would be probably the easiest thing for users to write their own payloads.
+
+# 12 october 2026
+
+I need to fix up the error handling in writePayload. Also i want to clean things up for reading the ELF header. Then after all that ill work on .so injection which means i gotta call dlopen(), which also means i gotta find where the libc is at in memory so its more reading /proc/<pid>/maps
