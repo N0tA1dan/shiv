@@ -43,8 +43,12 @@ int main(int argc, char *argv[]) {
   // writes payload in bytes
   tracee.writePayload(payload);
 
+  int64_t targetAddr;
+  std::cout << "enter target function addr to hook: ";
+  std::cin >> std::hex >> targetAddr;
+
   // trampoline hook function at given address
-  tracee.hookFunction(0x1139);
+  tracee.hookFunction(targetAddr);
 
   tracee.detach();
 
