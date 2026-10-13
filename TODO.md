@@ -140,4 +140,9 @@ Maybe i should try shared library injection using dlopen. I basically would have
 
 # 12 october 2026
 
+- [x] move elf parsing to member method of impl
+- [x] detach method made for tracee
+
 I need to fix up the error handling in writePayload. Also i want to clean things up for reading the ELF header. Then after all that ill work on .so injection which means i gotta call dlopen(), which also means i gotta find where the libc is at in memory so its more reading /proc/<pid>/maps
+
+In the future im going to add an attach() tracee method so you can attach to an existing process instead of always having to spawn your target if you want to hook it. This has some issues  though like multi threading so id have to stop every  running thread of a process when i attach to it. But the detach logic would be the same

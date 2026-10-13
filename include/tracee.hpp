@@ -26,6 +26,8 @@ public:
 
   void hookFunction(int64_t functionAddr);
 
+  void detach();
+
   [[nodiscard]] int64_t getPid();
 
   [[nodiscard]] uint64_t getAllocAddr();

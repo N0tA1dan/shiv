@@ -44,8 +44,10 @@ int main(int argc, char *argv[]) {
   tracee.writePayload(payload);
 
   // trampoline hook function at given address
-  tracee.hookFunction(0x401146);
+  tracee.hookFunction(0x1139);
 
-  pause();
+  tracee.detach();
+
+  //pause();
 }
 
