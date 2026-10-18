@@ -146,3 +146,9 @@ Maybe i should try shared library injection using dlopen. I basically would have
 I need to fix up the error handling in writePayload. Also i want to clean things up for reading the ELF header. Then after all that ill work on .so injection which means i gotta call dlopen(), which also means i gotta find where the libc is at in memory so its more reading /proc/<pid>/maps
 
 In the future im going to add an attach() tracee method so you can attach to an existing process instead of always having to spawn your target if you want to hook it. This has some issues  though like multi threading so id have to stop every  running thread of a process when i attach to it. But the detach logic would be the same
+
+# 16 October 2026
+
+I want to make a symbol hook resolver instead of a user adding an address. basically ill have to read the symbol table of a binary to find the symbols, then i could make it an option for a user to pass a symbol name and itll hook that instead of finding addresses
+
+in order to do .so injection i need to find libc loaded into the process. This means i need to wait for the process to load libc, so i need to overwrite the entry point which is in the ELF header

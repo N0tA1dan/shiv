@@ -196,6 +196,7 @@ void Tracee::initProc(const std::string& progName){
   // set pid
   m_impl->pid = childProc;
 
+  // parse elf header for PIE/NON-PIE binaries
   m_impl->parseElf(progName);
 
 }
