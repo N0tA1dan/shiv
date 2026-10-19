@@ -4,6 +4,7 @@
 #include <sys/wait.h>
 #include <sys/user.h>
 #include <unistd.h>
+#include <exception>
 #include "tracee.hpp"
 
 
@@ -13,6 +14,8 @@ int main(int argc, char *argv[]) {
     std::cerr << "error: expected file + optional args. Got 0" << std::endl;
     exit(EXIT_FAILURE);
   }
+
+  try {
 
   Tracee tracee;
 
@@ -53,5 +56,11 @@ int main(int argc, char *argv[]) {
   tracee.detach();
 
   //pause();
+
+  } catch (const std::exception& e) {
+    std::cerr << "error: " << e.what() << std::endl;
+    return EXIT_FAILURE;
+  }
+
 }
 

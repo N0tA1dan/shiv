@@ -80,6 +80,7 @@ struct Tracee::impl{
       throw std::runtime_error("error: unsupported ELF e_type");
     }
 
+
   }
 
   [[nodiscard]] user_regs_struct makeSyscall(uint64_t number, uint64_t rdi, uint64_t rsi, uint64_t rdx, uint64_t r10, uint64_t r8, uint64_t r9){
@@ -92,21 +93,33 @@ struct Tracee::impl{
       throw std::runtime_error("error: process not initialized or terminated");
     }
 
+    // return value of each ptrace call below, checked right after the call is made
+    long ret;
+
     // save current instructions to be restored later
     user_regs_struct oldRegs;
-    ptrace(PTRACE_GETREGS, childProc, NULL, &oldRegs);
+    ret = ptrace(PTRACE_GETREGS, childProc, NULL, &oldRegs);
+    if (ret == -1) {
+      throw std::runtime_error("error: PTRACE_GETREGS failed");
+    }
 
     // get current instruction
+    errno = 0;
     long oldCode = ptrace(PTRACE_PEEKTEXT, childProc, oldRegs.rip, NULL);
+    if (oldCode == -1 && errno) {
+      throw std::runtime_error("error: PTRACE_PEEKTEXT failed");
+    }
 
     // syscall instruction
     long syscallInstruction = (oldCode & ~0xFFFFL) | 0x050F;
-    ptrace(PTRACE_POKETEXT, childProc, (void*)oldRegs.rip, (void*)syscallInstruction);
+    ret = ptrace(PTRACE_POKETEXT, childProc, (void*)oldRegs.rip, (void*)syscallInstruction);
+    if (ret == -1) {
+      throw std::runtime_error("error: PTRACE_POKETEXT failed while writing syscall instruction");
+    }
 
     /*
      * We copy oldRegs into newRegs because we are only modifying a few registers.
      * We still need the old ones to keep the program from functioning properly
-     * We set the addr to null so the kernel will decide where to make the allocation
      */
     user_regs_struct newRegs = oldRegs;
     newRegs.rax = number;      // SYSCALL number 
@@ -118,21 +131,39 @@ struct Tracee::impl{
     newRegs.r9  = r9;
 
     // set new registers
-    ptrace(PTRACE_SETREGS, childProc, NULL, &newRegs);
+    ret = ptrace(PTRACE_SETREGS, childProc, NULL, &newRegs);
+    if (ret == -1) {
+      throw std::runtime_error("error: PTRACE_SETREGS failed");
+    }
 
     // execute the single syscall instruction
-    ptrace(PTRACE_SINGLESTEP, childProc, NULL, NULL);
+    ret = ptrace(PTRACE_SINGLESTEP, childProc, NULL, NULL);
+    if (ret == -1) {
+      throw std::runtime_error("error: PTRACE_SINGLESTEP failed");
+    }
 
     int status;
-    waitpid(childProc, &status, 0);
+    long waitRet = waitpid(childProc, &status, 0);
+    if (waitRet == -1) {
+      throw std::runtime_error("error: waitpid failed while executing syscall");
+    }
 
     // store the result, a syscall will return the result in RAX register. Then we put that into allocAddr
     user_regs_struct resultRegs;
-    ptrace(PTRACE_GETREGS, childProc, NULL, &resultRegs);
+    ret = ptrace(PTRACE_GETREGS, childProc, NULL, &resultRegs);
+    if (ret == -1) {
+      throw std::runtime_error("error: PTRACE_GETREGS failed while reading syscall result");
+    }
 
     // restore old context
-    ptrace(PTRACE_POKETEXT, childProc, (void*)oldRegs.rip, (void*)oldCode);
-    ptrace(PTRACE_SETREGS, childProc, NULL, &oldRegs);
+    ret = ptrace(PTRACE_POKETEXT, childProc, (void*)oldRegs.rip, (void*)oldCode);
+    if (ret == -1) {
+      throw std::runtime_error("error: PTRACE_POKETEXT failed while restoring original instruction");
+    }
+    ret = ptrace(PTRACE_SETREGS, childProc, NULL, &oldRegs);
+    if (ret == -1) {
+      throw std::runtime_error("error: PTRACE_SETREGS failed while restoring original registers");
+    }
 
     return resultRegs;
 
@@ -152,7 +183,12 @@ Tracee::Tracee() {
 
 }
 
-Tracee::~Tracee() = default;
+Tracee::~Tracee() {
+  // best-effort cleanup: don't throw out of a destructor, just try to detach
+  if (m_impl->pid > 0) {
+    ptrace(PTRACE_DETACH, m_impl->pid, NULL, NULL);
+  }
+}
 
 void Tracee::initProc(const std::string& progName){
 
@@ -202,7 +238,10 @@ void Tracee::initProc(const std::string& progName){
 }
 
 void Tracee::detach(){
-  ptrace(PTRACE_DETACH, m_impl->pid, NULL, NULL);
+  long ret = ptrace(PTRACE_DETACH, m_impl->pid, NULL, NULL);
+  if (ret == -1) {
+    throw std::runtime_error("error: PTRACE_DETACH failed");
+  }
 }
 
 void Tracee::createAlloc(size_t size){
@@ -215,6 +254,10 @@ void Tracee::createAlloc(size_t size){
       MAP_PRIVATE | MAP_ANONYMOUS,     // flags
       -1,                              // fd
       0);
+
+  if (result.rax == static_cast<uint64_t>(-1)) {
+    throw std::runtime_error("error: mmap failed to allocate memory in target process");
+  }
 
   m_impl->allocAddr = result.rax;
   m_impl->allocSize = size;
@@ -287,15 +330,28 @@ void Tracee::hookFunction(int64_t functionAddr){
   uint8_t patch[12] = { 0x48, 0xb8, 0,0,0,0,0,0,0,0, 0xff, 0xe0 };
   std::memcpy(&patch[2], &m_impl->allocAddr, 8);
 
+  // return value of each ptrace call below, checked right after the call is made
+  long ret;
+
   // first word: bytes 0..7 of patch (full word, no merge needed)
   uint64_t word1;
   std::memcpy(&word1, &patch[0], 8);
-  ptrace(PTRACE_POKETEXT, m_impl->pid, functionAddr, word1);
+  ret = ptrace(PTRACE_POKETEXT, m_impl->pid, functionAddr, word1);
+  if (ret == -1) {
+    throw std::runtime_error("error: PTRACE_POKETEXT failed while writing hook jump");
+  }
 
   // second word: bytes 8..11 of patch + preserve the 4 bytes after the patch
+  errno = 0;
   uint64_t word2 = ptrace(PTRACE_PEEKTEXT, m_impl->pid, functionAddr + 8, NULL);
+  if (word2 == static_cast<uint64_t>(-1) && errno) {
+    throw std::runtime_error("error: PTRACE_PEEKTEXT failed while reading bytes after hook");
+  }
   std::memcpy(&word2, &patch[8], 4);
-  ptrace(PTRACE_POKETEXT, m_impl->pid, functionAddr + 8, word2);
+  ret = ptrace(PTRACE_POKETEXT, m_impl->pid, functionAddr + 8, word2);
+  if (ret == -1) {
+    throw std::runtime_error("error: PTRACE_POKETEXT failed while writing hook jump tail");
+  }
 
 }
 
