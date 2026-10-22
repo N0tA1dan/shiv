@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <cstring>
 #include <cerrno>
+#include <iostream>
 #include <vector>
 #include <array>
 #include <fstream>
@@ -119,7 +120,6 @@ struct Tracee::impl{
 
     /*
      * We copy oldRegs into newRegs because we are only modifying a few registers.
-     * We still need the old ones to keep the program from functioning properly
      */
     user_regs_struct newRegs = oldRegs;
     newRegs.rax = number;      // SYSCALL number 
@@ -216,7 +216,7 @@ void Tracee::initProc(const std::string& progName){
 
   int status = 0;
   if(waitpid(childProc, &status, 0) == -1){
-    throw std::runtime_error("error: waitpid afailed on child process");
+    throw std::runtime_error("error: waitpid failed on child process");
   }
 
   /*
@@ -235,6 +235,27 @@ void Tracee::initProc(const std::string& progName){
   // parse elf header for PIE/NON-PIE binaries
   m_impl->parseElf(progName);
 
+}
+
+void Tracee::waitForMain(int64_t mainAddr) {
+  uint64_t addr = m_impl->baseAddr + mainAddr;
+
+  // read the original byte and replace with int3
+  long orig = ptrace(PTRACE_PEEKTEXT, m_impl->pid, addr, NULL);
+  long trap = (orig & ~0xFF) | 0xCC;
+  ptrace(PTRACE_POKETEXT, m_impl->pid, addr, trap);
+
+  // run at full speed until breakpoint
+  ptrace(PTRACE_CONT, m_impl->pid, NULL, NULL);
+  int status = 0;
+  waitpid(m_impl->pid, &status, 0);
+
+  // restore original instruction and rewind rip past the int3
+  ptrace(PTRACE_POKETEXT, m_impl->pid, addr, orig);
+  user_regs_struct regs;
+  ptrace(PTRACE_GETREGS, m_impl->pid, NULL, &regs);
+  regs.rip = addr;
+  ptrace(PTRACE_SETREGS, m_impl->pid, NULL, &regs);
 }
 
 void Tracee::detach(){
@@ -352,6 +373,27 @@ void Tracee::hookFunction(int64_t functionAddr){
   if (ret == -1) {
     throw std::runtime_error("error: PTRACE_POKETEXT failed while writing hook jump tail");
   }
+
+}
+
+[[nodiscard]] uint64_t Tracee::getLibraryAddr(const std::string& libraryName){
+
+  std::string line;
+  std::ifstream maps("/proc/" + std::to_string(m_impl->pid) + "/maps");
+
+  if(!maps){
+    throw std::runtime_error("error: getLibraryAddr could not open maps");
+  }
+
+  while(std::getline(maps, line)){
+
+    if(line.find(libraryName) != std::string::npos){
+      return std::stoull(line.substr(0, line.find('-')), nullptr, 16);
+    }
+
+  }
+
+  throw std::runtime_error("error: cannot find " + libraryName + " address. is it included in the program?");
 
 }
 

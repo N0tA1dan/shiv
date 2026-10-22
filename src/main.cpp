@@ -15,13 +15,11 @@ int main(int argc, char *argv[]) {
     exit(EXIT_FAILURE);
   }
 
-  try {
-
   Tracee tracee;
 
   // start process
   tracee.initProc(argv[1]);
-  std::cout << "Target Process ID: " << tracee.getPid() << std::endl;
+  std::cout << "Target Process ID: "  << std::dec << tracee.getPid() << std::endl;
 
   // mmap underneath. returns multiple of pages, not exact bytes like malloc()
   tracee.createAlloc(100);
@@ -46,7 +44,16 @@ int main(int argc, char *argv[]) {
   // writes payload in bytes
   tracee.writePayload(payload);
 
-  int64_t targetAddr;
+  int64_t mainAddr = 0;
+
+  std::cout << "enter targets main function address: ";
+  std::cin >> std::hex >> mainAddr;
+
+  tracee.waitForMain(mainAddr);
+
+  std::cout <<  "libc addr: " << std::hex << tracee.getLibraryAddr("libc") << std::endl;
+
+  int64_t targetAddr = 0;
   std::cout << "enter target function addr to hook: ";
   std::cin >> std::hex >> targetAddr;
 
@@ -56,11 +63,5 @@ int main(int argc, char *argv[]) {
   tracee.detach();
 
   //pause();
-
-  } catch (const std::exception& e) {
-    std::cerr << "error: " << e.what() << std::endl;
-    return EXIT_FAILURE;
-  }
-
 }
 

@@ -26,9 +26,13 @@ public:
 
   void hookFunction(int64_t functionAddr);
 
+  void waitForMain(int64_t mainAddr);
+
   void detach();
 
   [[nodiscard]] int64_t getPid();
+
+  [[nodiscard]] uint64_t getLibraryAddr(const std::string& libraryName);
 
   [[nodiscard]] uint64_t getAllocAddr();
 
