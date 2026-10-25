@@ -152,3 +152,11 @@ In the future im going to add an attach() tracee method so you can attach to an 
 I want to make a symbol hook resolver instead of a user adding an address. basically ill have to read the symbol table of a binary to find the symbols, then i could make it an option for a user to pass a symbol name and itll hook that instead of finding addresses
 
 in order to do .so injection i need to find libc loaded into the process. This means i need to wait for the process to load libc, so i need to overwrite the entry point which is in the ELF header
+
+# 24 October 2026
+
+To resolve libc functions we need to find the library first, then use an offset. I already did the first part which is resolving the library dynamically loaded into the process, now i need a elegant way to call functions within a library. Maybe ill make a public tracee function that accepts a hard coded address + the library name then resolves the library base address. So then the math is:
+
+real function addr = lib base addr + target function addr
+
+
