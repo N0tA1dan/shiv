@@ -159,4 +159,6 @@ To resolve libc functions we need to find the library first, then use an offset.
 
 real function addr = lib base addr + target function addr
 
+The issue is that idk if i want a hard coded address and make a function called like callDlOpen() or something or i have that as a public facing interface which would make things dynamic and more professional i guess
+
 
