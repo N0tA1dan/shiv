@@ -51,7 +51,9 @@ int main(int argc, char *argv[]) {
 
   tracee.waitForMain(mainAddr);
 
-  std::cout <<  "libc addr: " << std::hex << tracee.getLibraryAddr("libc") << std::endl;
+  uint64_t libcAddr = tracee.getLibraryAddr("libc");
+  std::cout  << "libc address: "<< std::hex  << libcAddr  << std::endl;
+
 
   int64_t targetAddr = 0;
   std::cout << "enter target function addr to hook: ";

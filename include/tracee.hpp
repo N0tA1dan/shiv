@@ -34,6 +34,8 @@ public:
 
   [[nodiscard]] uint64_t getLibraryAddr(const std::string& libraryName);
 
+  [[nodiscard]] user_regs_struct callLibraryFunction(uint64_t functionAddr, const std::vector<int64_t>& args = {});
+
   [[nodiscard]] uint64_t getAllocAddr();
 
   [[nodiscard]] uint64_t getBaseAddr();

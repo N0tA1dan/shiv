@@ -161,4 +161,8 @@ real function addr = lib base addr + target function addr
 
 The issue is that idk if i want a hard coded address and make a function called like callDlOpen() or something or i have that as a public facing interface which would make things dynamic and more professional i guess
 
+# 6 November 2026
 
+I made the function signature in tracee.hpp for calling library functions. We take a function address + a vector of args.
+
+Next is to work on the logic. it will be kind of like makeSyscall, but we need to get the return value that the function returns. After this we can basically finish up shared-library injection then we will be able to finally move onto windows hopefully.
